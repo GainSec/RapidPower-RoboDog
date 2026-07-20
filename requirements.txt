@@ -1,0 +1,9 @@
+# Rapidpower Robot Dog Python Port Dependencies
+
+# BLE communication
+bleak>=0.21.0
+
+# Web server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+websockets>=12.0

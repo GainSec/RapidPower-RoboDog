@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoboDog · Python Control for the Rapidpower Robot Dog</title>
+<meta name="description" content="Clean-room Python port + web dashboard to control a Rapidpower robot dog over Bluetooth LE — no phone app required.">
+<style>
+:root{
+ --bg:#0e1116; --bg2:#11161d; --card:#171c24; --card2:#1e2530; --ink:#eef2f8; --muted:#93a0b4;
+ --line:#2a323f; --amber:#ffb454; --amber2:#ff9a3c; --steel:#5cc8ff; --good:#57d977;
+ --mono:ui-monospace,Menlo,Consolas,monospace; --sans:Inter,-apple-system,Segoe UI,Roboto,sans-serif; --r:16px;
+}
+:root[data-theme="light"]{
+ --bg:#f6f8fb; --bg2:#eef2f7; --card:#ffffff; --card2:#f1f4f9; --ink:#141a22; --muted:#5a6675;
+ --line:#dde3ec; --amber:#d9812a; --amber2:#c96a12; --steel:#1f7fc0;
+}
+@media (prefers-color-scheme: light){
+ :root:not([data-theme="dark"]){
+  --bg:#f6f8fb; --bg2:#eef2f7; --card:#ffffff; --card2:#f1f4f9; --ink:#141a22; --muted:#5a6675;
+  --line:#dde3ec; --amber:#d9812a; --amber2:#c96a12; --steel:#1f7fc0;
+ }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:radial-gradient(1100px 520px at 50% -8%,rgba(255,180,84,.10),transparent),var(--bg);
+ color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--steel);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.mono{font-family:var(--mono)}
+
+/* header */
+header.top{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px}
+.brand .logo{font-size:26px}
+.theme{background:var(--card2);border:1px solid var(--line);color:var(--ink);border-radius:999px;
+ padding:7px 12px;font:600 13px var(--sans);cursor:pointer}
+
+/* hero */
+.hero{text-align:center;padding:34px 0 10px}
+.hero .dog{font-size:80px;filter:drop-shadow(0 10px 24px rgba(255,148,60,.35));animation:bob 3.4s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-9px) rotate(1deg)}}
+@media(prefers-reduced-motion:reduce){.hero .dog{animation:none}}
+h1{font-size:clamp(30px,6vw,48px);margin:.3em 0 .1em;letter-spacing:-.5px}
+.hero p.lead{color:var(--muted);font-size:clamp(16px,2.4vw,19px);max-width:640px;margin:.4em auto 0}
+.badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:18px 0 4px}
+.badge{font:700 12px var(--mono);background:var(--card2);border:1px solid var(--line);
+ border-radius:999px;padding:6px 12px;color:var(--muted)}
+.badge.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,var(--line))}
+.cta{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:24px 0 6px}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;padding:13px 20px;font-weight:700;cursor:pointer;border:1px solid var(--line)}
+.btn.primary{background:linear-gradient(180deg,var(--amber),var(--amber2));color:#231400;border:none}
+.btn.ghost{background:var(--card2);color:var(--ink)}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+
+section{padding:34px 0;border-top:1px solid var(--line);margin-top:20px}
+h2{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 18px}
+h3{margin:0 0 6px;font-size:17px}
+
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.card .ico{font-size:24px;margin-bottom:8px}
+.card p{margin:.2em 0 0;color:var(--muted);font-size:14.5px}
+
+/* command chips */
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font:600 13px var(--mono);background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.chip.new{border-color:var(--amber);color:var(--amber)}
+.group{margin-bottom:16px}
+.group .lbl{font:700 12px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+
+/* encoder demo */
+.enc{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.enc .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.enc select{flex:1;min-width:180px;background:var(--card2);color:var(--ink);border:1px solid var(--line);
+ border-radius:10px;padding:12px;font:600 15px var(--sans)}
+.packet{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:22px 0 6px}
+.byte{min-width:52px;text-align:center;border-radius:10px;border:1px solid var(--line);padding:10px 6px;background:var(--bg2)}
+.byte .hx{font:800 18px var(--mono);letter-spacing:.5px}
+.byte .nm{font:600 10px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+.byte.start{border-color:var(--muted)}
+.byte.type{border-color:var(--steel);color:var(--steel)}
+.byte.param{border-color:var(--amber);color:var(--amber)}
+.byte.chk{border-color:var(--good);color:var(--good)}
+.enc .full{text-align:center;font:800 16px var(--mono);margin-top:8px;letter-spacing:1px}
+.enc .note{text-align:center;color:var(--muted);font-size:13px;margin-top:6px}
+
+.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.steps li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px 14px 54px;position:relative}
+.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:14px;top:14px;width:26px;height:26px;
+ border-radius:50%;background:linear-gradient(180deg,var(--amber),var(--amber2));color:#231400;font-weight:800;
+ display:flex;align-items:center;justify-content:center;font-size:14px}
+pre{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;
+ font:13.5px/1.6 var(--mono)}
+code.inline{font-family:var(--mono);background:var(--card2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:.92em}
+
+footer{border-top:1px solid var(--line);padding:26px 0 50px;text-align:center;color:var(--muted);font-size:14px}
+footer a{font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="brand"><span class="logo">🐕‍🦺</span> RoboDog</div>
+  <button class="theme" id="theme" aria-label="Toggle theme">◐ Theme</button>
+</header>
+
+<div class="hero">
+  <div class="dog" aria-label="robot dog">
+    <svg width="190" height="150" viewBox="0 0 190 150" role="img" fill="none"
+         stroke="var(--steel)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+      <!-- legs -->
+      <path d="M52 92 v34 M52 126 h14" fill="none"/>
+      <path d="M78 96 v30 M78 126 h14" fill="none"/>
+      <path d="M120 96 v30 M120 126 h14" fill="none"/>
+      <path d="M146 92 v34 M146 126 h14" fill="none"/>
+      <!-- tail -->
+      <path d="M158 70 q18 -6 20 -26" fill="none"/>
+      <!-- body -->
+      <rect x="46" y="56" width="112" height="44" rx="16" fill="var(--amber)" stroke="var(--amber2)"/>
+      <!-- neck + head -->
+      <path d="M52 66 l-16 -18 q-4 -5 2 -9 l24 -12 q6 -3 10 3 l8 14" fill="var(--amber)" stroke="var(--amber2)"/>
+      <rect x="20" y="24" width="46" height="34" rx="10" fill="var(--amber)" stroke="var(--amber2)"/>
+      <!-- snout -->
+      <rect x="8" y="38" width="18" height="14" rx="4" fill="var(--card2)" stroke="var(--steel)"/>
+      <!-- ear / antenna -->
+      <path d="M54 24 v-14" fill="none"/><circle cx="54" cy="8" r="4" fill="var(--steel)" stroke="none"/>
+      <!-- eye LED -->
+      <circle cx="38" cy="40" r="5" fill="var(--bg)" stroke="var(--steel)"/>
+      <circle cx="38" cy="40" r="2.4" fill="var(--steel)" stroke="none"/>
+      <!-- body seam / panel line -->
+      <path d="M70 60 v36 M132 60 v36" stroke="var(--amber2)" stroke-width="2" opacity=".7"/>
+    </svg>
+  </div>
+  <h1>Control your robot dog<br>from Python</h1>
+  <p class="lead">A clean-room Python port and web dashboard for the <strong>Rapidpower robot dog</strong> —
+  scan, connect, and drive it over Bluetooth LE with no phone app required.</p>
+  <div class="badges">
+    <span class="badge good">● working on real hardware</span>
+    <span class="badge">Python 3.9+</span>
+    <span class="badge">Bluetooth LE · bleak</span>
+    <span class="badge">FastAPI dashboard</span>
+  </div>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/GainSec/RoboDog.git">⬇ Get the code</a>
+    <a class="btn ghost" href="README.md">📖 README</a>
+    <a class="btn ghost" href="PROTOCOL.md">📡 Protocol</a>
+    <a class="btn ghost" href="https://www.aliexpress.com/w/wholesale-rapidpower-robot-dog.html" target="_blank" rel="noopener">🛒 Buy the dog</a>
+  </div>
+</div>
+
+<section>
+  <h2>What you get</h2>
+  <div class="grid">
+    <div class="card"><div class="ico">🕹️</div><h3>Web dashboard</h3><p>Scan, connect, and drive from any browser on your LAN — D-pad, tricks, leg posing, feeds, live log.</p></div>
+    <div class="card"><div class="ico">🐍</div><h3>Plain Python API</h3><p><code class="inline">await dog.send_command('sit')</code> — script the dog in a handful of lines.</p></div>
+    <div class="card"><div class="ico">📡</div><h3>Live telemetry</h3><p>The dog's BLE notifications stream to the dashboard over a WebSocket in real time.</p></div>
+    <div class="card"><div class="ico">🔓</div><h3>No pairing, no auth</h3><p>Connect and go. The full 7-byte command protocol is documented and verified.</p></div>
+    <div class="card"><div class="ico">💻</div><h3>Cross-platform</h3><p>Runs on Linux (BlueZ), macOS, and Windows via <code class="inline">bleak</code>.</p></div>
+    <div class="card"><div class="ico">🧼</div><h3>Clean-room</h3><p>Original code, written from an observed interface. No proprietary source included.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Try the packet encoder</h2>
+  <div class="enc">
+    <div class="row">
+      <select id="cmd" aria-label="Command"></select>
+    </div>
+    <div class="packet" id="packet"></div>
+    <div class="full" id="full"></div>
+    <div class="note">7 bytes: <span style="color:var(--muted)">F0 start</span> ·
+      <span style="color:var(--steel)">TYPE</span> ·
+      <span style="color:var(--amber)">2-byte param</span> ·
+      <span style="color:var(--good)">checksum = param XOR 0xFFFFFF</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Everything it can do</h2>
+  <div class="group"><p class="lbl">Movement</p><div class="chips" id="g-move"></div></div>
+  <div class="group"><p class="lbl">Postures &amp; tricks</p><div class="chips" id="g-act"></div></div>
+  <div class="group"><p class="lbl">Entertainment</p><div class="chips" id="g-fun"></div></div>
+  <div class="group"><p class="lbl">Feed</p><div class="chips" id="g-feed"></div></div>
+  <p style="color:var(--muted);font-size:13.5px">Chips marked <span class="chip new" style="padding:2px 7px">new</span>-colored were recovered from the app's full command table beyond the first-pass port. Some movement opcodes are inferred — see <a href="PROTOCOL.md">PROTOCOL.md</a>.</p>
+</section>
+
+<section>
+  <h2>Run it in four steps</h2>
+  <ol class="steps">
+    <li><strong>Install.</strong> <code class="inline">pip install -r requirements.txt</code></li>
+    <li><strong>Start the server.</strong> <code class="inline">python -m robodog.server --host 0.0.0.0 --port 8770</code> (on Linux: <code class="inline">sudo systemctl enable --now bluetooth</code> first).</li>
+    <li><strong>Open the dashboard.</strong> Visit <code class="inline">http://&lt;host&gt;:8770/</code>, power the dog on, close the phone app.</li>
+    <li><strong>Scan → Connect → drive.</strong> If the dog isn't listed by name, hit <em>Scan all</em> and pick the strongest nearby device.</li>
+  </ol>
+  <pre>from robodog import RobodogBLE
+dog = RobodogBLE()
+await dog.connect()
+await dog.send_command('sit')
+await dog.send_command('dance')
+await dog.disconnect()</pre>
+</section>
+
+<footer>
+  <p>Made by <a href="https://gainsec.com" target="_blank" rel="noopener">Jon &ldquo;GainSec&rdquo; Gaines</a>
+   · an independent interoperability project · not affiliated with the makers of the Rapidpower robot dog.</p>
+</footer>
+
+</div>
+
+<script>
+// ---- theme toggle ----
+const root=document.documentElement, tbtn=document.getElementById('theme');
+tbtn.onclick=()=>{const cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
+ root.setAttribute('data-theme', cur==='dark'?'light':'dark');};
+
+// ---- packet encoder (mirrors robodog/protocol.py) ----
+function frame(type,param){const body=[type,(param>>8)&0xFF,param&0xFF];
+ const chk=body.map(b=>b^0xFF); return [0xF0,...body,...chk];}
+const H=n=>n.toString(16).toUpperCase().padStart(2,'0');
+const ACTIONS={forward:0x0001,turn_left:0x0004,turn_right:0x0007,stop:0x000A,swim:0x000D,sit:0x0010,
+ greet:0x0013,get_down:0x0016,act_cute:0x0019,shake_hand:0x001C,attack:0x001F,surrender:0x0022,
+ pee:0x0025,handstand:0x0028,patrol:0x002B,kung_fu:0x002E,push_up:0x0031};
+const INFERRED={backward:0x0002,left_shift:0x0005,right_shift:0x0008,stand_up:0x0011};
+const FUN={dance:0x12,story:0x18,music:0x1E,sleep:0x24};
+const FEED={feed_water:1,feed_bone:2,feed_ice:3,feed_gem:4,feed_battery:5,feed_sun:6,feed_oil:7,feed_nucleus:8};
+const NEW=new Set(['surrender','dance','story','music','sleep']);
+
+function packetFor(name){
+ if(name in ACTIONS) return frame(0x2A,ACTIONS[name]);
+ if(name in INFERRED) return frame(0x2A,INFERRED[name]);
+ if(name in FUN) return frame(FUN[name],1);        // variant 1
+ if(name in FEED) return frame(0x30,FEED[name]);
+ return frame(0x2A,0);
+}
+const sel=document.getElementById('cmd');
+[['— actions —',ACTIONS],['— movement (inferred) —',INFERRED],['— entertainment —',FUN],['— feed —',FEED]]
+ .forEach(([grp,obj])=>{const og=document.createElement('optgroup');og.label=grp;
+  Object.keys(obj).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;og.appendChild(o);});
+  sel.appendChild(og);});
+function render(){
+ const name=sel.value, bytes=packetFor(name);
+ const roles=['start','type','param','param','chk','chk','chk'];
+ const names=['F0','TYPE','P·hi','P·lo','chk','chk','chk'];
+ document.getElementById('packet').innerHTML=bytes.map((b,i)=>
+  `<div class="byte ${roles[i]}"><div class="hx">${H(b)}</div><div class="nm">${names[i]}</div></div>`).join('');
+ document.getElementById('full').textContent='F0'+bytes.slice(1).map(H).join('');
+}
+sel.onchange=render; sel.value='dance'; render();
+
+// ---- command chips ----
+const chip=(k)=>`<span class="chip ${NEW.has(k)?'new':''}">${k}</span>`;
+document.getElementById('g-move').innerHTML=['forward','backward','turn_left','turn_right','left_shift','right_shift','stop','swim'].map(chip).join('');
+document.getElementById('g-act').innerHTML=Object.keys(ACTIONS).filter(k=>!['forward','turn_left','turn_right','stop','swim'].includes(k)).map(chip).join('');
+document.getElementById('g-fun').innerHTML=Object.keys(FUN).map(chip).join('');
+document.getElementById('g-feed').innerHTML=Object.keys(FEED).map(chip).join('');
+</script>
+</body>
+</html>
